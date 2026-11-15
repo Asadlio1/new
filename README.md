@@ -1,8 +1,8 @@
-# Shackleton Shift
+# Lunar Quest
 
 **Run a Moon base. Every choice costs something.**
 
-Shackleton Shift is a browser game for ages 7 to 12 where players split limited power between air, radiation shielding, food and science. Real NASA space weather decides how stormy their mission gets.
+Lunar Quest is a browser game for ages 7 to 12 where players split limited power between air, radiation shielding, food and science. Real NASA space weather decides how stormy their mission gets.
 
 A browser game for ages 7–12 about running a Moon base for 14 days. Built for the 2026 NASA Space Apps Challenge: *Build a Junior Astronaut Mission Trainer*.
 

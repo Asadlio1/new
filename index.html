@@ -296,7 +296,7 @@ function startScreen(){
     s.cons.map(function(p){return '<span class="pill bad">− '+esc(p)+'</span>'}).join('')+'</button>'}).join('')+
   '</div><p style="margin-top:10px">'+dataBadge()+'</p><p class="muted small" style="margin-top:10px">Real Moon fact: sunlit ridges near the south pole get light for long stretches, while the shadowed craters hold water ice. Missions like Artemis weigh exactly this choice.</p></section>'+
   sourcesBlock(false)+
-  '<p class="small muted" style="margin-top:4px">Space weather from NASA DONKI. Radiation readings from NASA OSDR RadLab. Food and STEM resources from the Canadian Space Agency. NASA does not endorse this project.</p>';
+  '<p class="small muted" style="margin-top:4px"><b>Made by Devoted Team.</b> Space weather from NASA DONKI. Radiation readings from NASA OSDR RadLab. Food and STEM resources from the Canadian Space Agency. NASA does not endorse this project.</p>';
   document.getElementById('xp').onchange=function(e){EXPLORER=e.target.checked};
   app.querySelectorAll('[data-site]').forEach(function(b){b.onclick=function(){S=newState(b.dataset.site,EXPLORER);render()}});
 }

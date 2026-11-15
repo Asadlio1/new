@@ -179,7 +179,7 @@ var NASA_KEY='HtTQQBfgcpqfLdmFRdL8JgChJKfjMkRhTbKL6qBb'; // free personal NASA k
 function isoDay(d){return d.toISOString().slice(0,10)}
 function niceDate(s){var d=new Date(s);if(isNaN(d))return null;return d.getUTCDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()]+' '+d.getUTCFullYear()}
 function getJson(url,ms){
-  var ctl=new AbortController(),t=setTimeout(function(){ctl.abort()},ms||8000);
+  var ctl=new AbortController(),t=setTimeout(function(){ctl.abort()},ms||20000);
   return fetch(url,{signal:ctl.signal}).then(function(r){clearTimeout(t);if(!r.ok)throw 0;return r.text()}).then(function(tx){tx=(tx||'').trim();return tx?JSON.parse(tx):[]});
 }
 // Try the personal key first, then NASA's shared DEMO_KEY.
@@ -187,12 +187,17 @@ function donki(kind,start,end){
   var q='https://api.nasa.gov/DONKI/'+kind+'?startDate='+isoDay(start)+'&endDate='+isoDay(end)+'&api_key=';
   return getJson(q+NASA_KEY).catch(function(){return getJson(q+'DEMO_KEY')});
 }
+function flareList(data){
+  var list=[];
+  (data||[]).forEach(function(f){var m=flareMult(f.classType);if(m)list.push({cls:f.classType,date:niceDate(f.peakTime),mult:m,note:'A real flare logged by NASA DONKI.',live:true})});
+  return list;
+}
+// Ask for a short window first (fast), then a longer one if there are too few flares.
 function loadLive(){
-  var end=new Date(),start=new Date(Date.now()-365*864e5);
-  donki('FLR',start,end).then(function(data){
-    var list=[];
-    (data||[]).forEach(function(f){var m=flareMult(f.classType);if(m)list.push({cls:f.classType,date:niceDate(f.peakTime),mult:m,note:'A real flare logged by NASA DONKI.',live:true})});
-    if(list.length>=3){LIVE.list=list;LIVE.ok=true}
+  var end=new Date();
+  function window(days){return donki('FLR',new Date(Date.now()-days*864e5),end).then(flareList)}
+  window(60).then(function(l){return l.length>=3?l:window(180)}).then(function(l){
+    if(l.length>=3){LIVE.list=l;LIVE.ok=true;LIVE.days=l.days}
   }).catch(function(){}).then(function(){LIVE.tried=true;if(!S)startScreen()});
 }
 function classRank(c){var m=/^([A-Z])(\d+(\.\d+)?)/.exec(c||'');if(!m)return -1;return ({X:3,M:2,C:1,B:0,A:0}[m[1]]||0)*1000+parseFloat(m[2])}
@@ -212,14 +217,21 @@ function loadWeek(){
   }).catch(function(){}).then(function(){WEEK.tried=true;if(!S)startScreen()});
 }
 // RadLab archive: real dose rates measured on the International Space Station (microgray per hour).
+function parseCsv(tx){
+  var lines=(tx||'').trim().split(/\r?\n/);if(lines.length<2)return [];
+  var head=lines[0].split(',').map(function(s){return s.trim().replace(/^"|"$/g,'')});
+  return lines.slice(1).map(function(l){var c=l.split(','),o={};head.forEach(function(k,i){o[k]=(c[i]||'').trim().replace(/^"|"$/g,'')});return o});
+}
 function loadRad(){
-  var url='https://visualization.osdr.nasa.gov/radlab/api?spacecraft=ISS&timestamp>=2022-04-01T00:00:00Z&timestamp<=2022-04-01T01:00:00Z&format=json';
-  getJson(url,12000).then(function(d){
-    var rows=Array.isArray(d)?d:(d&&(d.data||d.rows||d.results))||[];
-    var a=[],q=[];
-    rows.forEach(function(r){var v=parseFloat(r.absorbed_dose_rate);if(isFinite(v)&&v>0)a.push(v);var w=parseFloat(r.dose_equivalent_rate);if(isFinite(w)&&w>0)q.push(w)});
-    if(a.length){RAD.rate=a.reduce(function(s,v){return s+v},0)/a.length;RAD.deq=q.length?q.reduce(function(s,v){return s+v},0)/q.length:0;RAD.n=a.length;RAD.when='RadLab archive, 1 Apr 2022';RAD.ok=true}
-  }).catch(function(){}).then(function(){RAD.tried=true;if(!S)startScreen()});
+  // Boolean query syntax from the RadLab data API page. CSV is its default, documented output.
+  var q='(spacecraft=ISS)AND(absorbed_dose_rate>0)AND(timestamp>=2022-04-01T23:00)AND(timestamp<=2022-04-02T00:00)';
+  var url='https://visualization.osdr.nasa.gov/radlab/api/?query='+encodeURIComponent(q)+'&fields=timestamp,absorbed_dose_rate,dose_equivalent_rate&format=csv';
+  var ctl=new AbortController(),t=setTimeout(function(){ctl.abort()},20000);
+  fetch(url,{signal:ctl.signal}).then(function(r){clearTimeout(t);if(!r.ok)throw 0;return r.text()}).then(function(tx){
+    var rows=parseCsv(tx),a=[],w=[];
+    rows.forEach(function(r){var v=parseFloat(r.absorbed_dose_rate);if(isFinite(v)&&v>0)a.push(v);var e=parseFloat(r.dose_equivalent_rate);if(isFinite(e)&&e>0)w.push(e)});
+    if(a.length){RAD.rate=a.reduce(function(s,v){return s+v},0)/a.length;RAD.deq=w.length?w.reduce(function(s,v){return s+v},0)/w.length:0;RAD.n=a.length;RAD.when='RadLab archive, 1 Apr 2022';RAD.ok=true}
+  }).catch(function(){RAD.err=true}).then(function(){RAD.tried=true;if(!S)startScreen()});
 }
 function weatherPanel(){
   var link=' <a href="https://ccmc.gsfc.nasa.gov/DONKI/events/?start=now+-+7d&end=now" target="_blank" rel="noopener">See the real events</a>';
@@ -233,11 +245,12 @@ function weatherPanel(){
   }else{
     out+='<p class="small muted">Checking NASA space weather…</p>';
   }
+  if(RAD.tried&&!RAD.ok)out+='<p class="small muted">The Space Station radiation reading (NASA RadLab) could not be loaded this time.</p>';
   if(RAD.ok)out+='<p class="small muted">Real Space Station reading ('+RAD.when+'): about '+n1(RAD.rate)+' micrograys of radiation per hour.</p>';
   return out+'</section>';
 }
 function dataBadge(){
-  if(LIVE.ok)return '<span class="pill good">Live NASA data: '+LIVE.list.length+' real M and X flares from the past year (DONKI)</span>';
+  if(LIVE.ok)return '<span class="pill good">Live NASA data: '+LIVE.list.length+' real M and X flares from recent months (DONKI)</span>';
   if(LIVE.tried)return '<span class="pill">Archived data: live NASA feed not reachable here</span>';
   return '<span class="pill">Checking NASA space weather…</span>';
 }

@@ -37,7 +37,7 @@ Each run draws solar storms at random and one dust day that cuts solar power by 
 
 | Source | How it is used |
 |---|---|
-| [NASA DONKI](https://ccmc.gsfc.nasa.gov/tools/DONKI/) flares (`/DONKI/FLR`) | Storm strength. On load the game requests M and X class flares from the past 365 days and draws storms from them. M-class becomes strength 2.5. X-class scales up with its number, capped at 7. |
+| [NASA DONKI](https://ccmc.gsfc.nasa.gov/tools/DONKI/) flares (`/DONKI/FLR`) | Storm strength. On load the game requests M and X class flares from the recent months (60 to 180 days) and draws storms from them. M-class becomes strength 2.5. X-class scales up with its number, capped at 7. |
 | NASA DONKI past 7 days (`FLR`, `CME`, `GST`, `SEP`) | **Today's real Sun** panel on the start screen. It counts medium and big flares, clouds of gas (CMEs), the highest Kp index and particle events. A quiet, active or stormy week sets how many storms you face (2, 3 or 4). |
 | [OSDR RadLab](https://visualization.osdr.nasa.gov/radlab/gui/data-api/) (`/radlab/api`) | A real ISS absorbed dose rate (micrograys per hour) shown on the start and end screens. The game asks for one hour of ISS data from 1 April 2022, so this is an archive reading, not live. |
 | [NASA OSDR](https://osdr.nasa.gov/bio/repo/) | Background on how spaceflight affects the body. |

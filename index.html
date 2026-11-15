@@ -129,7 +129,7 @@ var FLARES=[
   {cls:'X28 (estimated)',date:'4 Nov 2003',mult:7,note:'The largest flare on record. It overloaded the instruments, so its size is an estimate.'}
 ];
 var FLARE_BAG=[0,0,0,1,1,2,2,3,4];
-var LIVE={ok:false,tried:false,list:[]};
+var LIVE={ok:false,tried:false,list:[],reason:'',reached:false,days:0};
 var WEEK={ok:false,tried:false,level:'quiet',mx:0,biggest:null,cmes:0,kp:null,sep:0,score:0};
 var RAD={ok:false,tried:false,rate:0,deq:0,n:0,when:''};
 function stormCount(){
@@ -137,7 +137,7 @@ function stormCount(){
   return 2+rnd(2);
 }
 function pickFlare(){
-  if(LIVE.ok&&LIVE.list.length)return LIVE.list[rnd(LIVE.list.length)];
+  if(LIVE.list.length&&Math.random()<0.6)return LIVE.list[rnd(LIVE.list.length)];
   return FLARES[FLARE_BAG[rnd(FLARE_BAG.length)]];
 }
 function flareMult(c){
@@ -194,11 +194,16 @@ function flareList(data){
 }
 // Ask for a short window first (fast), then a longer one if there are too few flares.
 function loadLive(){
-  var end=new Date();
-  function window(days){return donki('FLR',new Date(Date.now()-days*864e5),end).then(flareList)}
-  window(60).then(function(l){return l.length>=3?l:window(180)}).then(function(l){
-    if(l.length>=3){LIVE.list=l;LIVE.ok=true;LIVE.days=l.days}
-  }).catch(function(){}).then(function(){LIVE.tried=true;if(!S)startScreen()});
+  var end=new Date(),spans=[60,180,365],i=0;
+  function next(){
+    var days=spans[i];
+    return donki('FLR',new Date(Date.now()-days*864e5),end).then(function(data){
+      LIVE.reached=true;var l=flareList(data);LIVE.days=days;
+      if(l.length>=3||i>=spans.length-1){LIVE.list=l;LIVE.ok=l.length>0;if(!l.length)LIVE.reason='NASA answered but listed no medium or big flares';return}
+      i++;return next();
+    });
+  }
+  next().catch(function(e){LIVE.reason=LIVE.reached?'':'request failed ('+(e&&e.message?e.message:'blocked or timed out')+')'}).then(function(){LIVE.tried=true;if(!S)startScreen()});
 }
 function classRank(c){var m=/^([A-Z])(\d+(\.\d+)?)/.exec(c||'');if(!m)return -1;return ({X:3,M:2,C:1,B:0,A:0}[m[1]]||0)*1000+parseFloat(m[2])}
 function loadWeek(){
@@ -222,16 +227,30 @@ function parseCsv(tx){
   var head=lines[0].split(',').map(function(s){return s.trim().replace(/^"|"$/g,'')});
   return lines.slice(1).map(function(l){var c=l.split(','),o={};head.forEach(function(k,i){o[k]=(c[i]||'').trim().replace(/^"|"$/g,'')});return o});
 }
-function loadRad(){
-  // Boolean query syntax from the RadLab data API page. CSV is its default, documented output.
-  var q='(spacecraft=ISS)AND(absorbed_dose_rate>0)AND(timestamp>=2022-04-01T23:00)AND(timestamp<=2022-04-02T00:00)';
-  var url='https://visualization.osdr.nasa.gov/radlab/api/?query='+encodeURIComponent(q)+'&fields=timestamp,absorbed_dose_rate,dose_equivalent_rate&format=csv';
+function radFetch(url){
   var ctl=new AbortController(),t=setTimeout(function(){ctl.abort()},20000);
-  fetch(url,{signal:ctl.signal}).then(function(r){clearTimeout(t);if(!r.ok)throw 0;return r.text()}).then(function(tx){
-    var rows=parseCsv(tx),a=[],w=[];
+  return fetch(url,{signal:ctl.signal}).then(function(r){clearTimeout(t);if(!r.ok)throw new Error('HTTP '+r.status);return r.text()});
+}
+function radRows(tx){
+  tx=(tx||'').trim();if(!tx)return [];
+  if(tx[0]==='['||tx[0]==='{'){var j=JSON.parse(tx);return Array.isArray(j)?j:(j.data||j.rows||j.results||[])}
+  return parseCsv(tx);
+}
+function loadRad(){
+  var base='https://visualization.osdr.nasa.gov/radlab/api/';
+  // Form 1: boolean query (documented), CSV. Form 2: key-value filters, JSON.
+  var q='(spacecraft=ISS)AND(absorbed_dose_rate>0)AND(timestamp>=2022-04-01T23:00)AND(timestamp<=2022-04-02T00:00)';
+  var u1=base+'?query='+encodeURIComponent(q)+'&fields=timestamp,absorbed_dose_rate,dose_equivalent_rate&format=csv';
+  var u2=base+'?spacecraft=ISS&absorbed_dose_rate>0&timestamp>=2022-04-01T23:00&timestamp<=2022-04-02T00:00&format=json';
+  function use(tx){
+    var rows=radRows(tx),a=[],w=[];
     rows.forEach(function(r){var v=parseFloat(r.absorbed_dose_rate);if(isFinite(v)&&v>0)a.push(v);var e=parseFloat(r.dose_equivalent_rate);if(isFinite(e)&&e>0)w.push(e)});
-    if(a.length){RAD.rate=a.reduce(function(s,v){return s+v},0)/a.length;RAD.deq=w.length?w.reduce(function(s,v){return s+v},0)/w.length:0;RAD.n=a.length;RAD.when='RadLab archive, 1 Apr 2022';RAD.ok=true}
-  }).catch(function(){RAD.err=true}).then(function(){RAD.tried=true;if(!S)startScreen()});
+    if(!a.length)throw new Error('no dose rows in the reply');
+    RAD.rate=a.reduce(function(s,v){return s+v},0)/a.length;RAD.deq=w.length?w.reduce(function(s,v){return s+v},0)/w.length:0;RAD.n=a.length;RAD.when='RadLab archive, 1 Apr 2022';RAD.ok=true;
+  }
+  radFetch(u1).then(use).catch(function(e1){
+    return radFetch(u2).then(use).catch(function(e2){RAD.err=(e1&&e1.message||'blocked')+' / '+(e2&&e2.message||'blocked')});
+  }).then(function(){RAD.tried=true;if(!S)startScreen()});
 }
 function weatherPanel(){
   var link=' <a href="https://ccmc.gsfc.nasa.gov/DONKI/events/?start=now+-+7d&end=now" target="_blank" rel="noopener">See the real events</a>';
@@ -245,13 +264,13 @@ function weatherPanel(){
   }else{
     out+='<p class="small muted">Checking NASA space weather…</p>';
   }
-  if(RAD.tried&&!RAD.ok)out+='<p class="small muted">The Space Station radiation reading (NASA RadLab) could not be loaded this time.</p>';
+  if(RAD.tried&&!RAD.ok)out+='<p class="small muted">The Space Station radiation reading (NASA RadLab) could not be loaded this time ('+esc(RAD.err||'unknown')+').</p>';
   if(RAD.ok)out+='<p class="small muted">Real Space Station reading ('+RAD.when+'): about '+n1(RAD.rate)+' micrograys of radiation per hour.</p>';
   return out+'</section>';
 }
 function dataBadge(){
-  if(LIVE.ok)return '<span class="pill good">Live NASA data: '+LIVE.list.length+' real M and X flares from recent months (DONKI)</span>';
-  if(LIVE.tried)return '<span class="pill">Archived data: live NASA feed not reachable here</span>';
+  if(LIVE.ok)return '<span class="pill good">Live NASA data: '+LIVE.list.length+' real M and X flares from the last '+LIVE.days+' days (DONKI)'+(LIVE.list.length<3?', mixed with famous real flares':'')+'</span>';
+  if(LIVE.tried)return '<span class="pill">Archived data: '+(LIVE.reason||'live NASA feed not reachable here')+'</span>';
   return '<span class="pill">Checking NASA space weather…</span>';
 }
 

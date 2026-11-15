@@ -1,0 +1,397 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shackleton Shift</title></head><body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Lexend:wght@400;500;600&display=swap">
+<style>
+/* Layout: one control-room column. Meters on top, the power dial in the middle, the day log below. Single dark look by design: the Moon at night. */
+:root{
+  --bg:#0d1216; --panel:#151c22; --panel2:#1b242c; --line:#2a3640;
+  --fg:#ebeff3; --mute:#9eabb7;
+  --power:#ffc247; --food:#ff9f5a; --air:#6fd3ff; --shield:#8be3a0; --sci:#d6bcff; --danger:#ff6a4d;
+  --display:'Chakra Petch','Arial Narrow',system-ui,sans-serif;
+  --body:'Lexend',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{
+  background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px;
+}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;line-height:1.15}
+h1{font-size:clamp(28px,6vw,40px);letter-spacing:.01em}
+h2{font-size:22px}
+h3{font-size:16px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+p{margin:0}
+.eyebrow{font-family:var(--display);font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--power)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.muted{color:var(--mute)}
+.small{font-size:14px}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--air);outline-offset:2px}
+.btn{background:var(--power);color:#1b1400;border:0;border-radius:8px;padding:12px 20px;font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:.03em;min-height:48px}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+
+/* site cards */
+.sites{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.site{text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.site:hover{border-color:var(--power)}
+.site b{font-family:var(--display);font-size:20px}
+.pill{display:inline-block;font-size:13px;padding:2px 10px;border-radius:99px;border:1px solid var(--line);color:var(--mute)}
+.pill.good{color:var(--shield);border-color:#3a6a47}
+.pill.bad{color:var(--danger);border-color:#7a3a2d}
+ol.how{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px}
+
+/* top bar */
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.days{display:flex;gap:4px;flex-wrap:wrap}
+.d{width:18px;height:8px;border-radius:2px;background:var(--line)}
+.d.done{background:var(--mute)} .d.now{background:var(--power)} .d.storm{box-shadow:0 -4px 0 -1px var(--danger)}
+
+/* meters */
+.meters{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.m{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.m .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.m .name{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.06em;text-transform:uppercase}
+.m .val{font-variant-numeric:tabular-nums;font-weight:600}
+.bar{height:12px;background:var(--bg);border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+.bar>i{display:block;height:100%;border-radius:6px 0 0 6px;transition:width .4s}
+.m .note{font-size:13px;color:var(--mute)}
+
+/* alert */
+.alert{border:1px solid #7a3a2d;background:#2a1612;border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.alert b{color:var(--danger);font-family:var(--display);letter-spacing:.05em;text-transform:uppercase}
+.alert.info{border-color:#5b4a1d;background:#241d0c}
+.alert.info b{color:var(--power)}
+
+/* allocator */
+.alloc{display:flex;flex-direction:column;gap:10px}
+.pool{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.pool .big{font-family:var(--display);font-size:34px;font-weight:700;color:var(--power);font-variant-numeric:tabular-nums}
+.line{display:grid;grid-template-columns:1fr auto;gap:10px 14px;align-items:center;padding:12px;background:var(--panel2);border-radius:8px;border:1px solid var(--line)}
+.line .lbl b{font-family:var(--display);font-size:18px}
+.line .lbl span{display:block;font-size:13px;color:var(--mute)}
+.step{display:flex;align-items:center;gap:8px}
+.step button{width:44px;height:44px;border-radius:8px;border:1px solid var(--line);background:var(--bg);font-size:22px;font-weight:600}
+.step button:hover:not([disabled]){border-color:var(--power)}
+.step button[disabled]{opacity:.3;cursor:not-allowed}
+.step output{min-width:34px;text-align:center;font-family:var(--display);font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+.shelter{display:flex;gap:12px;align-items:flex-start;padding:12px;border:1px dashed var(--line);border-radius:8px}
+.shelter input{width:22px;height:22px;margin-top:2px;accent-color:var(--danger)}
+.preview{font-size:14px;color:var(--mute);display:flex;flex-wrap:wrap;gap:6px 16px}
+.preview b{color:var(--fg);font-variant-numeric:tabular-nums}
+.warn{color:var(--danger)}
+
+/* log */
+.log{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.log li{padding:10px 12px;background:var(--panel2);border-radius:8px;font-size:15px}
+.log li b{font-family:var(--display);color:var(--power);letter-spacing:.04em}
+
+/* end */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.stat{background:var(--panel2);border-radius:8px;padding:10px 12px}
+.stat b{display:block;font-family:var(--display);font-size:26px;font-variant-numeric:tabular-nums}
+.fact{border-left:4px solid var(--air);padding:4px 0 4px 14px}
+.fact.p{border-color:var(--power)} .fact.r{border-color:var(--danger)}
+details{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+summary{cursor:pointer;font-family:var(--display);font-weight:700;letter-spacing:.05em}
+details p,details li{margin-top:8px;font-size:15px}
+details ul{padding-left:20px;margin:6px 0 0}
+a{color:var(--air)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+.scroll{overflow-x:auto}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){.bar>i{transition:none}}
+</style>
+
+<main class="wrap" id="app" aria-live="polite"></main>
+
+<script>
+//LOGIC-START
+var DAYS=14, O2_MAX=20, O2_USE=3, DOSE_LIMIT=36, SCI_GOAL=35, BAT_MAX=6, SHIELD_MAX=8, FOOD_MAX=20, FOOD_USE=2, FOOD_START=14;
+var SITES={
+  ridge:{key:'ridge',name:'Sunlit Ridge',sun:10,o2:1,sci:1,sky:1,food:1,
+    pros:['Lots of sunshine: 10 power every day','Simple, steady science'],
+    cons:['No ice nearby: 1 power makes just 1 air','Nothing blocks the sky, so full radiation']},
+  floor:{key:'floor',name:'Icy Crater Floor',sun:6,o2:1.5,sci:1.5,sky:0.9,food:1.25,
+    pros:['Water ice: 1 power makes 1.5 air','Ice samples are worth 1.5 science each','Crater walls block some of the sky'],
+    cons:['Deep shadow: only 6 power a day']}
+};
+// Real flares (date and class from NASA DONKI / NOAA records). 'mult' is the game's storm strength.
+var FLARES=[
+  {cls:'M-class',date:null,mult:2.5,note:'Medium flares are common when the Sun is active.'},
+  {cls:'X5.8',date:'11 May 2024',mult:4,note:'The biggest flare of the May 2024 storms, which also lit up skies far from the poles.'},
+  {cls:'X9.0',date:'3 Oct 2024',mult:5,note:'One of the strongest flares of the current solar cycle.'},
+  {cls:'X9.3',date:'6 Sep 2017',mult:5,note:'The strongest flare of the previous solar cycle.'},
+  {cls:'X28 (estimated)',date:'4 Nov 2003',mult:7,note:'The largest flare on record. It overloaded the instruments, so its size is an estimate.'}
+];
+var FLARE_BAG=[0,0,0,1,1,2,2,3,4];
+var LIVE={ok:false,tried:false,list:[]};
+var WEEK={ok:false,tried:false,level:'quiet',mx:0,biggest:null,cmes:0,kp:null,sep:0,score:0};
+var RAD={ok:false,tried:false,rate:0,deq:0,n:0,when:''};
+function stormCount(){
+  if(WEEK.ok)return WEEK.level==='stormy'?4:WEEK.level==='active'?3:2;
+  return 2+rnd(2);
+}
+function pickFlare(){
+  if(LIVE.ok&&LIVE.list.length)return LIVE.list[rnd(LIVE.list.length)];
+  return FLARES[FLARE_BAG[rnd(FLARE_BAG.length)]];
+}
+function flareMult(c){
+  var m=/^([MX])(\d+(\.\d+)?)/.exec(c||'');if(!m)return null;
+  var v=parseFloat(m[2]);return m[1]==='M'?2.5:Math.min(7,Math.round((3+0.2*v)*10)/10);
+}
+function rnd(n){return Math.floor(Math.random()*n)}
+function newState(siteKey,explorer){
+  var storms={},flares={},tries=0,count=stormCount();
+  while(Object.keys(flares).length<count&&tries<60){
+    tries++;var f=3+rnd(10);
+    var clash=false;for(var k in flares){if(Math.abs(k-f)<2)clash=true}
+    if(clash||f+1>DAYS)continue;
+    var ev=pickFlare();
+    flares[f]=ev;storms[f+1]=ev;
+  }
+  return {site:siteKey,explorer:!!explorer,food:FOOD_START,day:1,o2:12,dose:0,shield:0,sci:0,bat:3,dust:3+rnd(10),
+    alloc:{air:0,shield:0,sci:0,food:0},shelter:false,storms:storms,flares:flares,log:[],over:null,peakStorm:0};
+}
+function sunToday(st){return SITES[st.site].sun-(st.day===st.dust?3:0)}
+function resolveDay(st){
+  var site=SITES[st.site],a=st.alloc,sun=sunToday(st),power=sun+st.bat,used=a.air+a.shield+a.sci+(a.food||0);
+  var o2Made=a.air*site.o2;
+  var o2=Math.min(O2_MAX,st.o2+o2Made)-O2_USE;
+  var shield=Math.min(SHIELD_MAX,st.shield+a.shield);
+  var storm=st.storms[st.day]||null,mult=1;
+  if(storm){mult=storm.mult;if(st.shelter)mult=1+(mult-1)*0.3}
+  var doseAdd=2.4*site.sky*(1-0.09*shield)*mult;
+  var sciAdd=st.shelter?0:a.sci*site.sci;
+  return {sun:sun,power:power,used:used,o2:o2,o2Made:o2Made,shield:shield,shieldEnd:Math.max(0,shield-1),
+    doseAdd:Math.round(doseAdd*10)/10,dose:Math.round((st.dose+doseAdd)*10)/10,sci:st.sci+sciAdd,sciAdd:sciAdd,
+    bat:Math.min(BAT_MAX,power-used),storm:storm,foodMade:(a.food||0)*site.food,food:st.explorer?Math.min(FOOD_MAX,st.food+(a.food||0)*site.food)-FOOD_USE:null};
+}
+//LOGIC-END
+
+// Live NASA DONKI flares. Works on a normal website (such as GitHub Pages).
+// The Claude artifact viewer blocks outside requests, so there the game uses the archived list.
+var NASA_KEY='HtTQQBfgcpqfLdmFRdL8JgChJKfjMkRhTbKL6qBb'; // free personal NASA key. Visible to anyone who views this page. If it is misused, request a new one at https://api.nasa.gov
+function isoDay(d){return d.toISOString().slice(0,10)}
+function niceDate(s){var d=new Date(s);if(isNaN(d))return null;return d.getUTCDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()]+' '+d.getUTCFullYear()}
+function getJson(url,ms){
+  var ctl=new AbortController(),t=setTimeout(function(){ctl.abort()},ms||8000);
+  return fetch(url,{signal:ctl.signal}).then(function(r){clearTimeout(t);if(!r.ok)throw 0;return r.text()}).then(function(tx){tx=(tx||'').trim();return tx?JSON.parse(tx):[]});
+}
+// Try the personal key first, then NASA's shared DEMO_KEY.
+function donki(kind,start,end){
+  var q='https://api.nasa.gov/DONKI/'+kind+'?startDate='+isoDay(start)+'&endDate='+isoDay(end)+'&api_key=';
+  return getJson(q+NASA_KEY).catch(function(){return getJson(q+'DEMO_KEY')});
+}
+function loadLive(){
+  var end=new Date(),start=new Date(Date.now()-365*864e5);
+  donki('FLR',start,end).then(function(data){
+    var list=[];
+    (data||[]).forEach(function(f){var m=flareMult(f.classType);if(m)list.push({cls:f.classType,date:niceDate(f.peakTime),mult:m,note:'A real flare logged by NASA DONKI.',live:true})});
+    if(list.length>=3){LIVE.list=list;LIVE.ok=true}
+  }).catch(function(){}).then(function(){LIVE.tried=true;if(!S)startScreen()});
+}
+function classRank(c){var m=/^([A-Z])(\d+(\.\d+)?)/.exec(c||'');if(!m)return -1;return ({X:3,M:2,C:1,B:0,A:0}[m[1]]||0)*1000+parseFloat(m[2])}
+function loadWeek(){
+  var end=new Date(),start=new Date(Date.now()-7*864e5);
+  function safe(k){return donki(k,start,end).catch(function(){return null})}
+  Promise.all([safe('FLR'),safe('CME'),safe('GST'),safe('SEP')]).then(function(r){
+    var flr=r[0],cme=r[1],gst=r[2],sep=r[3];
+    if(flr===null&&cme===null)return;
+    var x=0,m=0,big=null;
+    (flr||[]).forEach(function(f){var c=f.classType||'';if(c[0]==='X')x++;else if(c[0]==='M')m++;if(!big||classRank(c)>classRank(big))big=c});
+    var kp=null;
+    (gst||[]).forEach(function(g){(g.allKpIndex||[]).forEach(function(k){if(typeof k.kpIndex==='number'&&(kp===null||k.kpIndex>kp))kp=k.kpIndex})});
+    var seps=(sep||[]).length,score=x*3+m+(kp>=5?3:0)+(kp>=7?2:0)+seps*2;
+    WEEK.mx=x+m;WEEK.x=x;WEEK.m=m;WEEK.biggest=big;WEEK.cmes=(cme||[]).length;WEEK.kp=kp;WEEK.sep=seps;WEEK.score=score;
+    WEEK.level=score>=8?'stormy':score>=3?'active':'quiet';WEEK.ok=true;
+  }).catch(function(){}).then(function(){WEEK.tried=true;if(!S)startScreen()});
+}
+// RadLab archive: real dose rates measured on the International Space Station (microgray per hour).
+function loadRad(){
+  var url='https://visualization.osdr.nasa.gov/radlab/api?spacecraft=ISS&timestamp>=2022-04-01T00:00:00Z&timestamp<=2022-04-01T01:00:00Z&format=json';
+  getJson(url,12000).then(function(d){
+    var rows=Array.isArray(d)?d:(d&&(d.data||d.rows||d.results))||[];
+    var a=[],q=[];
+    rows.forEach(function(r){var v=parseFloat(r.absorbed_dose_rate);if(isFinite(v)&&v>0)a.push(v);var w=parseFloat(r.dose_equivalent_rate);if(isFinite(w)&&w>0)q.push(w)});
+    if(a.length){RAD.rate=a.reduce(function(s,v){return s+v},0)/a.length;RAD.deq=q.length?q.reduce(function(s,v){return s+v},0)/q.length:0;RAD.n=a.length;RAD.when='RadLab archive, 1 Apr 2022';RAD.ok=true}
+  }).catch(function(){}).then(function(){RAD.tried=true;if(!S)startScreen()});
+}
+function weatherPanel(){
+  var link=' <a href="https://ccmc.gsfc.nasa.gov/DONKI/events/?start=now+-+7d&end=now" target="_blank" rel="noopener">See the real events</a>';
+  var out='<section class="panel" style="display:flex;flex-direction:column;gap:8px"><h3>Today\'s real Sun</h3>';
+  if(WEEK.ok){
+    var lvl={quiet:'Quiet',active:'Active',stormy:'Stormy'}[WEEK.level],n=WEEK.level==='stormy'?4:WEEK.level==='active'?3:2;
+    out+='<p><span class="pill '+(WEEK.level==='stormy'?'bad':WEEK.level==='quiet'?'good':'')+'">The Sun this week: '+lvl+'</span></p>'+
+    '<p class="small">In the last 7 days NASA DONKI logged '+WEEK.mx+' medium or big flares'+(WEEK.biggest?' (biggest: '+esc(WEEK.biggest)+')':'')+', '+WEEK.cmes+' clouds of gas thrown from the Sun'+(WEEK.kp!==null?' and a top Kp of '+WEEK.kp+' (0 calm, 9 extreme)':'')+'. Your game will send <b>'+n+' storms</b>.'+link+'</p>';
+  }else if(WEEK.tried){
+    out+='<p class="small muted">Could not reach NASA DONKI right now, so storms are random this time.'+link+'</p>';
+  }else{
+    out+='<p class="small muted">Checking NASA space weather…</p>';
+  }
+  if(RAD.ok)out+='<p class="small muted">Real Space Station reading ('+RAD.when+'): about '+n1(RAD.rate)+' micrograys of radiation per hour.</p>';
+  return out+'</section>';
+}
+function dataBadge(){
+  if(LIVE.ok)return '<span class="pill good">Live NASA data: '+LIVE.list.length+' real M and X flares from the past year (DONKI)</span>';
+  if(LIVE.tried)return '<span class="pill">Archived data: live NASA feed not reachable here</span>';
+  return '<span class="pill">Checking NASA space weather…</span>';
+}
+
+var app=document.getElementById('app'),S=null,EXPLORER=false;
+function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function n1(x){return (Math.round(x*10)/10).toString()}
+
+function startScreen(){
+  S=null;
+  app.innerHTML=
+  '<header><div class="eyebrow">Artemis-era mission trainer</div><h1>Shackleton Shift</h1>'+
+  '<p class="muted" style="margin-top:8px">You run a Moon base for 14 days. Every day you have a little power. Whatever you give to one job, you take from another.</p></header>'+
+  '<section class="panel"><h3>How to play</h3><ol class="how" style="margin-top:10px">'+
+  '<li>Split your power between <b style="color:var(--air)">Air</b>, <b style="color:var(--shield)">Shield</b> and <b style="color:var(--sci)">Science</b>.</li>'+
+  '<li>The crew breathes '+O2_USE+' air every day. If the tank hits zero, the mission ends.</li>'+
+  '<li>Solar storms add radiation. If the crew\'s dose reaches the limit, the mission ends.</li>'+
+  '<li>Collect '+SCI_GOAL+' science points in '+DAYS+' days to complete the mission.</li></ol></section>'+
+  weatherPanel()+
+  '<label class="shelter" for="xp"><input type="checkbox" id="xp"'+(EXPLORER?' checked':'')+'><span><b>Explorer mode: add a greenhouse</b><br><span class="small muted">The crew eats '+FOOD_USE+' food a day and you grow more with power. A fourth job makes the game harder.</span></span></label>'+
+  '<section><h3 style="margin-bottom:10px">Choose your landing site</h3><div class="sites">'+
+  ['ridge','floor'].map(function(k){var s=SITES[k];return '<button class="site" data-site="'+k+'"><b>'+s.name+'</b>'+
+    s.pros.map(function(p){return '<span class="pill good">+ '+esc(p)+'</span>'}).join('')+
+    s.cons.map(function(p){return '<span class="pill bad">− '+esc(p)+'</span>'}).join('')+'</button>'}).join('')+
+  '</div><p style="margin-top:10px">'+dataBadge()+'</p><p class="muted small" style="margin-top:10px">Real Moon fact: sunlit ridges near the south pole get light for long stretches, while the shadowed craters hold water ice. Missions like Artemis weigh exactly this choice.</p></section>'+
+  sourcesBlock(false);
+  document.getElementById('xp').onchange=function(e){EXPLORER=e.target.checked};
+  app.querySelectorAll('[data-site]').forEach(function(b){b.onclick=function(){S=newState(b.dataset.site,EXPLORER);render()}});
+}
+
+function meter(name,val,max,color,txt,note){
+  return '<div class="m"><div class="row"><span class="name" style="color:'+color+'">'+name+'</span><span class="val">'+txt+'</span></div>'+
+  '<div class="bar" role="progressbar" aria-label="'+name+'" aria-valuemin="0" aria-valuemax="'+max+'" aria-valuenow="'+n1(val)+'"><i style="width:'+Math.max(0,Math.min(100,val/max*100))+'%;background:'+color+'"></i></div>'+
+  '<div class="note">'+note+'</div></div>';
+}
+
+function render(){
+  if(!S)return startScreen();
+  if(S.over)return endScreen();
+  var site=SITES[S.site],r=resolveDay(S),a=S.alloc,left=r.power-r.used;
+  var stormToday=S.storms[S.day],flareToday=S.flares[S.day];
+  var dayBars='';for(var i=1;i<=DAYS;i++){dayBars+='<span class="d'+(i<S.day?' done':'')+(i===S.day?' now':'')+(S.storms[i]&&i>=S.day?' storm':'')+'" title="Day '+i+'"></span>'}
+  var alerts='';
+  if(stormToday){
+    alerts+='<div class="alert"><b>Storm arriving today</b><p>Radiation from the '+stormToday.cls+' flare is reaching the Moon. '+(S.shelter?'Your crew is in the storm shelter.':'Tick the storm shelter box to cut the extra radiation. It costs you all of today\'s science.')+'</p></div>';
+  }
+  if(flareToday){
+    alerts+='<div class="alert"><b>Space weather alert</b><p>The Sun just fired a '+flareToday.cls+' flare'+(flareToday.date?', like the real one on '+flareToday.date:'')+'. Its particles reach the Moon tomorrow. Shield up now, or plan to shelter.</p></div>';
+  }
+  if(S.day===S.dust){
+    alerts+='<div class="alert info"><b>Dust on the panels</b><p>Moon dust is sticky and scratchy. Today the solar panels make 3 less power.</p></div>';
+  }
+  var doseWarn=r.dose>=DOSE_LIMIT*0.8,o2Warn=r.o2<=3;
+  app.innerHTML=
+  '<div class="top"><div><div class="eyebrow">'+site.name+'</div><h2>Day '+S.day+' of '+DAYS+'</h2></div><div class="days" aria-label="Mission calendar">'+dayBars+'</div></div>'+
+  alerts+
+  '<section class="meters">'+
+    meter('Air',S.o2,O2_MAX,'var(--air)',n1(S.o2)+' / '+O2_MAX,'Crew uses '+O2_USE+' each day.')+
+    (S.explorer?meter('Food',S.food,FOOD_MAX,'var(--food)',n1(S.food)+' / '+FOOD_MAX,'Crew eats '+FOOD_USE+' each day.'):'')+
+    meter('Radiation dose',S.dose,DOSE_LIMIT,'var(--danger)',n1(S.dose)+' / '+DOSE_LIMIT,'Dose is how much radiation the crew has absorbed. At '+DOSE_LIMIT+' they must go home.')+
+    meter('Shield wall',S.shield,SHIELD_MAX,'var(--shield)','Level '+S.shield,'Piled moon dirt that blocks radiation. 1 level slumps away each day.')+
+    meter('Science',S.sci,SCI_GOAL,'var(--sci)',n1(S.sci)+' / '+SCI_GOAL,'Goal for the mission.')+
+  '</section>'+
+  '<section class="panel alloc"><div class="pool"><div><h3>Power today</h3><div class="small muted">Sun '+r.sun+' + battery '+S.bat+'</div></div><div class="big" aria-label="Power left">'+left+' <span class="small muted" style="font-family:var(--body);font-weight:400">left of '+r.power+'</span></div></div>'+
+  line('air','Air','1 power makes '+site.o2+' air',a.air,left,'var(--air)')+
+  line('shield','Shield','1 power adds 1 level of wall',a.shield,left,'var(--shield)')+
+  (S.explorer?line('food','Greenhouse','1 power grows '+site.food+' food',a.food||0,left,'var(--food)'):'')+
+  line('sci','Science','1 power gives '+site.sci+' science point'+(site.sci===1?'':'s'),a.sci,left,'var(--sci)',S.shelter)+
+  '<label class="shelter" for="shel"><input type="checkbox" id="shel"'+(S.shelter?' checked':'')+'><span><b>Storm shelter</b><br><span class="small muted">Crew hides inside. Cuts a storm\'s extra radiation by 70%, but no science happens. Does nothing on a quiet day.</span></span></label>'+
+  '<div class="preview"><span>Unused power goes to the battery (holds '+BAT_MAX+'): <b>'+r.bat+'</b></span></div>'+
+  '<div class="preview"><span>Tonight: air <b class="'+(o2Warn?'warn':'')+'">'+n1(Math.max(0,r.o2))+'</b></span>'+(S.explorer?'<span>food <b class="'+(r.food<=2?'warn':'')+'">'+n1(Math.max(0,r.food))+'</b></span>':'')+'<span>dose <b class="'+(doseWarn?'warn':'')+'">'+n1(r.dose)+'</b> (+'+n1(r.doseAdd)+')</span><span>science <b>'+n1(r.sci)+'</b></span></div>'+
+  '<button class="btn" id="end">End day '+S.day+'</button></section>'+
+  (S.log.length?'<section><h3 style="margin-bottom:10px">Mission log</h3><ul class="log">'+S.log.slice(0,4).map(function(l){return '<li>'+l+'</li>'}).join('')+'</ul></section>':'')+
+  sourcesBlock(false);
+  app.querySelectorAll('[data-k]').forEach(function(b){b.onclick=function(){
+    var k=b.dataset.k,d=+b.dataset.d,rr=resolveDay(S),free=rr.power-rr.used;
+    if(d>0&&free<1)return; if(d<0&&S.alloc[k]<1)return;
+    S.alloc[k]+=d;render();}});
+  document.getElementById('shel').onchange=function(e){S.shelter=e.target.checked;if(S.shelter)S.alloc.sci=0;render()};
+  document.getElementById('end').onclick=endDay;
+}
+function line(k,name,sub,val,left,color,locked){
+  return '<div class="line"><div class="lbl"><b style="color:'+color+'">'+name+'</b><span>'+sub+(locked?' (sheltering: no science today)':'')+'</span></div>'+
+  '<div class="step"><button data-k="'+k+'" data-d="-1" aria-label="Less power to '+name+'"'+(val<1?' disabled':'')+'>−</button><output>'+val+'</output>'+
+  '<button data-k="'+k+'" data-d="1" aria-label="More power to '+name+'"'+((left<1||locked)?' disabled':'')+'>+</button></div></div>';
+}
+
+function endDay(){
+  var r=resolveDay(S),site=SITES[S.site],msg=[];
+  var wasStorm=!!r.storm;
+  msg.push('<b>Day '+S.day+'.</b> Made '+n1(r.o2Made)+' air, crew breathed '+O2_USE+'. '+(S.explorer?'Greenhouse grew '+n1(r.foodMade)+' food, crew ate '+FOOD_USE+'. ':'')+'Dose +'+n1(r.doseAdd)+'.');
+  if(wasStorm){
+    var full=2.4*site.sky*(1-0.09*r.shield)*r.storm.mult;
+    msg.push(S.shelter?'Storm hit. Sheltering saved about '+n1(full-r.doseAdd)+' dose, but you gave up science.':'Storm hit and the crew took the full blast.');
+    S.peakStorm=Math.max(S.peakStorm,r.storm.mult);
+  }
+  if(S.shelter&&!wasStorm)msg.push('The shelter was not needed today, so a day of science was lost.');
+  if(S.explorer)S.food=r.food;S.o2=r.o2;S.dose=r.dose;S.sci=r.sci;S.bat=r.bat;S.shield=r.shieldEnd;
+  S.log.unshift(msg.join(' '));
+  if(S.o2<=0){S.over='air'}
+  else if(S.explorer&&S.food<=0){S.over='food'}
+  else if(S.dose>=DOSE_LIMIT){S.over='dose'}
+  else if(S.day>=DAYS){S.over=S.sci>=SCI_GOAL?'win':'science'}
+  else{S.day++;S.alloc={air:0,shield:0,sci:0,food:0};S.shelter=false}
+  render();window.scrollTo(0,0);
+}
+
+function endScreen(){
+  var o=S.over,site=SITES[S.site];
+  var head={win:['Mission complete','You finished the science and kept the crew safe.'],
+    food:['Out of food','The crew ran out of food on day '+S.day+'.'],
+    air:['Out of air','The tank ran empty on day '+S.day+'. The crew has to leave.'],
+    dose:['Radiation limit reached','The crew absorbed too much radiation on day '+S.day+' and must return to Earth.'],
+    science:['Crew safe, science unfinished','Everyone lived, but you collected '+n1(S.sci)+' of '+SCI_GOAL+' points.']}[o];
+  var facts=[];
+  if(o==='air'||S.o2<6)facts.push('<div class="fact"><b>Why air costs power.</b> On the International Space Station, oxygen is made by splitting water with electricity. More crew and less sunshine means a bigger power bill for breathing.</div>');
+  if(o==='dose'||S.dose>DOSE_LIMIT*0.6)facts.push('<div class="fact r"><b>Why the Moon is tough on bodies.</b> It has no thick air and no magnetic bubble to protect it. The Chang\'e-4 lander measured about 1.4 millisieverts of radiation per day on the Moon, roughly 200 times what we get on Earth\'s surface (published estimate, rounded).</div>');
+  if(S.peakStorm>=4)facts.push('<div class="fact r"><b>Forecasts buy time.</b> Real mission planners watch the Sun with tools like NASA\'s DONKI so crews can prepare before particles arrive. In the game, your warning came one day early.</div>');
+  if(o==='science'||o==='win')facts.push('<div class="fact p"><b>No choice is free.</b> Every power unit you spent on science was a unit not spent on air or shielding. Real planners split power between life support, communications and science every day.</div>');
+  if(S.explorer&&(o==='food'||S.food<6))facts.push('<div class="fact p"><b>Why food needs power too.</b> Growing plants takes light, water and care. The Canadian Space Agency\'s food toolkit shows how astronauts grow plants on the Space Station, such as the Veg-04A plant experiment, to learn how to feed crews far from Earth.</div>');
+  if(RAD.ok)facts.push('<div class="fact"><b>A real ISS reading.</b> NASA\'s RadLab archive shows an average of about '+n1(RAD.rate)+' micrograys of radiation per hour on the Space Station ('+RAD.when+'). Over a full day that is about '+Math.round(RAD.rate*24)+' micrograys.</div>');
+  if(S.site==='ridge')facts.push('<div class="fact"><b>Your site.</b> A sunlit ridge makes plenty of power, but there is no ice nearby, so air is pricey. Try the crater floor to see the opposite trade.</div>');
+  else facts.push('<div class="fact"><b>Your site.</b> Shadowed craters hold water ice, which helps with air and science, but the sun barely reaches you. Try the ridge to see the opposite trade.</div>');
+  app.innerHTML=
+  '<header><div class="eyebrow">'+site.name+' · Day '+S.day+'</div><h1>'+head[0]+'</h1><p class="muted" style="margin-top:8px">'+head[1]+'</p></header>'+
+  '<section class="stats"><div class="stat"><span class="muted small">Air left</span><b>'+n1(Math.max(0,S.o2))+'</b></div>'+(S.explorer?'<div class="stat"><span class="muted small">Food left</span><b>'+n1(Math.max(0,S.food))+'</b></div>':'')+'<div class="stat"><span class="muted small">Radiation dose</span><b>'+n1(S.dose)+'/'+DOSE_LIMIT+'</b></div><div class="stat"><span class="muted small">Science</span><b>'+n1(S.sci)+'/'+SCI_GOAL+'</b></div></section>'+
+  '<section class="panel" style="display:flex;flex-direction:column;gap:14px"><h3>What this taught</h3>'+facts.join('')+'</section>'+
+  '<div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" id="again">Play '+site.name+' again</button><button class="btn ghost" id="other">Choose another site</button></div>'+
+  '<p class="muted small">Every run has different storms and a different dust day, so each try plays out differently.</p>'+
+  sourcesBlock(true);
+  document.getElementById('again').onclick=function(){S=newState(S.site,S.explorer);render()};
+  document.getElementById('other').onclick=startScreen;
+  window.scrollTo(0,0);
+}
+
+function sourcesBlock(open){
+  var A=function(u,t){return '<a href="'+u+'" target="_blank" rel="noopener">'+t+'</a>'};
+  return '<details'+(open?' open':'')+'><summary>Real NASA and CSA science behind this game</summary>'+
+  '<p><b>Flare and space weather data:</b> '+(LIVE.ok||WEEK.ok?'loaded live from NASA DONKI.':'not reachable in this viewer, so a small hand-picked set of real flares is used.')+' Power, air, food, shield and science numbers are scaled game values, not mission data.</p>'+
+  '<div class="scroll"><table><thead><tr><th>Source</th><th>Used for</th></tr></thead><tbody>'+
+  '<tr><td>'+A('https://ccmc.gsfc.nasa.gov/tools/DONKI/','NASA DONKI')+' (flares, CMEs, geomagnetic storms, particle events)</td><td>Storm strength from the past year of flares. The past 7 days set how many storms you face.</td></tr>'+
+  '<tr><td>'+A('https://visualization.osdr.nasa.gov/radlab/gui/data-api/','OSDR RadLab')+'</td><td>A real radiation dose rate measured on the International Space Station, shown on the start and end screens.</td></tr>'+
+  '<tr><td>'+A('https://osdr.nasa.gov/bio/repo/','NASA OSDR')+'</td><td>Background on how spaceflight affects the body.</td></tr>'+
+  '<tr><td>'+A('https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/','CSA food production toolkit')+'</td><td>The greenhouse job in Explorer mode and its end-screen fact.</td></tr>'+
+  '<tr><td>Chang\'e-4 lander dosimeter (published research)</td><td>The Moon surface dose compared with Earth.</td></tr></tbody></table></div>'+
+  '<p class="small muted">Game simplifications: storm particles arrive one day after the flare (in reality fast particles can arrive within hours, and slower gas clouds in one to three days). The dose limit of '+DOSE_LIMIT+' is a game number.</p>'+
+  '<h3 style="margin-top:14px">Keep learning with the Canadian Space Agency</h3><ul>'+
+  '<li>'+A('https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/','Food production on the Moon and in remote areas')+'</li>'+
+  '<li>'+A('https://www.asc-csa.gc.ca/eng/youth-educators/activities/fitness-and-nutrition/interplanetary-farming.asp','Activity: Interplanetary Farming')+'</li>'+
+  '<li>'+A('https://www.asc-csa.gc.ca/eng/sciences/food-production/deep-space-food-challenge.asp','Deep Space Food Challenge')+'</li>'+
+  '<li>'+A('https://www.asc-csa.gc.ca/eng/youth-educators/resources-stem-and-youth-organizations.asp','Space resources for STEM and youth organizations')+'</li></ul>'+
+  '<h3 style="margin-top:14px">Words to know</h3><ul><li><b>Radiation:</b> invisible energy from the Sun and deep space that can harm the body.</li><li><b>Dose:</b> how much radiation you have absorbed in total.</li><li><b>Solar flare:</b> a sudden burst of light and energy from the Sun.</li><li><b>Kp:</b> how shaken Earth\'s magnetic field is, from 0 (calm) to 9 (extreme).</li><li><b>Regolith:</b> the loose dust and rock covering the Moon.</li><li><b>Greenhouse:</b> a place where plants are grown for food.</li></ul></details>';
+}
+startScreen();
+loadLive();loadWeek();loadRad();
+</script>
+</body></html>
